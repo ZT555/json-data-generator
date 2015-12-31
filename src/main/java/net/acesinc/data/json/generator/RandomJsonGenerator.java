@@ -138,7 +138,7 @@ public class RandomJsonGenerator {
                 String newContext = "";
                 if (propName != null) {
                     gen.writeStartArray(propName);
-                    
+
                     if (currentContext.isEmpty()) {
                         newContext = propName;
                     } else {
@@ -181,6 +181,56 @@ public class RandomJsonGenerator {
                                 List<Object> subList = listOfItems.subList(1, listOfItems.size());
                                 Object item = subList.get(new RandomDataGenerator().nextInt(0, subList.size() - 1));
                                 processItem(item, gen, newContext + "[0]");
+                                break;
+                            }
+                            case "join": {
+                                // "property_name": [
+                                //    "join(',')",
+                                //    "2015/04/01T00:00:00",
+                                //    "integer(1, 10)",
+                                //    "random('red', 'blue')"
+                                // ]
+                                // output: {"property_name": ["2015/04/01T00:00:00,7,red"]}
+                                String delimiter = "";
+                                if (specialFuncArgs.length == 1) {
+                                    String parameter = specialFuncArgs[0];
+                                    delimiter = parameter.substring(parameter.indexOf("'") + 1, parameter.lastIndexOf("'"));
+                                }
+                                String res = new String();
+                                for (int i = 1; i < listOfItems.size(); i++) {
+                                    Object item = listOfItems.get(i);
+                                    if (! String.class.isAssignableFrom(item.getClass())) {
+                                        //list and map can't be joined
+                                        continue;
+                                    }
+
+                                    if (i != 1){
+                                        res = res + delimiter;    //append delimiter;
+                                    }
+
+                                    String type = (String) item;
+                                    try {
+                                        TypeHandler th = TypeHandlerFactory.getInstance().getTypeHandler(type, generatedValues, currentContext);
+                                        if (th != null) {
+                                            Object val = th.getNextRandomValue();//                            outputValues.put(propName, val);
+
+                                            if (Date.class.isAssignableFrom(val.getClass())) {
+                                                res = res + iso8601DF.format((Date) val);
+                                            } else{
+                                                res = res + val;
+                                            }
+                                        } else{
+                                            //literal string
+                                            res = res + type;
+                                        }
+                                    } catch (IllegalArgumentException iae) {
+                                        log.warn("Error creating type [ " + type + " ]. Prop [ " + propName + " ] being ignored in output.  Reason: " + iae.getMessage());
+                                        log.debug("Error creating type [ " + type + " ]. Prop [ " + propName + " ] being ignored in output.", iae);
+                                    }
+                                }//end of for (int i = 1; i < listOfItems.size(); i++)
+                                
+                                generatedValues.put(currentContext + propName + "[0]", res);
+                                addValue(gen, null, res);
                                 break;
                             }
                         }
